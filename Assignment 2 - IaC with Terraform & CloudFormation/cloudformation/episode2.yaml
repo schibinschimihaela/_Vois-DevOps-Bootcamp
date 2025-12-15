@@ -1,0 +1,101 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Episode 2 - Link Between the Nodes (CloudFormation)
+
+Resources:
+  CyberVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.10.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: cyber-vpc
+
+  SubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref CyberVPC
+      CidrBlock: 10.10.1.0/24
+      AvailabilityZone: eu-west-1a
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: subnet-a
+
+  SubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref CyberVPC
+      CidrBlock: 10.10.2.0/24
+      AvailabilityZone: eu-west-1b
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: subnet-b
+
+  MutualSSH:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SSH only between Subnet A and Subnet B
+      VpcId: !Ref CyberVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 10.10.1.0/24
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 10.10.2.0/24
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: mutual-ssh
+
+  NodeA:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.micro
+      KeyName: aws-lab-key
+      ImageId: "ami-07fbc2dd99a4a9fe7"
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          SubnetId: !Ref SubnetA
+          GroupSet:
+            - !Ref MutualSSH
+          AssociatePublicIpAddress: false
+      Tags:
+        - Key: Name
+          Value: NodeA
+
+  NodeB:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.micro
+      KeyName: aws-lab-key
+      ImageId: "ami-07fbc2dd99a4a9fe7"
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          SubnetId: !Ref SubnetB
+          GroupSet:
+            - !Ref MutualSSH
+          AssociatePublicIpAddress: false
+      Tags:
+        - Key: Name
+          Value: NodeB
+
+Outputs:
+  VpcId:
+    Description: VPC ID
+    Value: !Ref CyberVPC
+
+  NodeAPrivateIP:
+    Description: Private IP of NodeA
+    Value: !GetAtt NodeA.PrivateIp
+
+  NodeBPrivateIP:
+    Description: Private IP of NodeB
+    Value: !GetAtt NodeB.PrivateIp
