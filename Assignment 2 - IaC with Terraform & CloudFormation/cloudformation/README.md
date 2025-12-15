@@ -82,11 +82,11 @@ aws cloudformation create-stack \
 
 ### NodeA → NodeB
 
-![NodeA to NodeB](photos/Node_A-NodeB.png)
+![NodeA to NodeB](photos/Node_A-Node_B.png)
 
 ### NodeB → NodeA
 
-![NodeB to NodeA](photos/Node_B-NodeA.png)
+![NodeB to NodeA](photos/Node_B-Node_A.png)
 
 ---
 
