@@ -29,3 +29,7 @@ output "nodea_instance_id" {
 output "nodeb_instance_id" {
   value = aws_instance.nodeb.id
 }
+
+output "eic_endpoint_id" {
+  value = aws_ec2_instance_connect_endpoint.eic.id
+}

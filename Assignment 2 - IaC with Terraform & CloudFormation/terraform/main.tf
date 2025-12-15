@@ -76,6 +76,31 @@ data "aws_ami" "amazon_linux_2" {
   }
 }
 
+resource "aws_security_group" "eic_endpoint_sg" {
+  name        = "eic-endpoint-sg"
+  description = "Security group for EC2 Instance Connect Endpoint"
+  vpc_id      = aws_vpc.cyber.id
+
+  egress {
+    description = "Allow SSH to VPC CIDR"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+  }
+
+  tags = merge(var.tags, { Name = "eic-endpoint-sg" })
+}
+
+resource "aws_ec2_instance_connect_endpoint" "eic" {
+  subnet_id          = aws_subnet.a.id
+  security_group_ids = [aws_security_group.eic_endpoint_sg.id]
+
+  tags = merge(var.tags, { Name = "eic-endpoint" })
+}
+
+
+
 resource "aws_instance" "nodea" {
   ami                         = data.aws_ami.amazon_linux_2.id
   instance_type               = var.instance_type

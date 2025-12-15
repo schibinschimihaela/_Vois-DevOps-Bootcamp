@@ -55,6 +55,31 @@ Resources:
         - Key: Name
           Value: mutual-ssh
 
+  EICEndpointSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for EC2 Instance Connect Endpoint
+      VpcId: !Ref CyberVPC
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 10.10.0.0/16
+      Tags:
+        - Key: Name
+          Value: eic-endpoint-sg
+
+  EC2InstanceConnectEndpoint:
+    Type: AWS::EC2::InstanceConnectEndpoint
+    Properties:
+      SubnetId: !Ref SubnetA
+      SecurityGroupIds:
+        - !Ref EICEndpointSG
+      PreserveClientIp: false
+      Tags:
+        - Key: Name
+          Value: eic-endpoint
+
   NodeA:
     Type: AWS::EC2::Instance
     Properties:
