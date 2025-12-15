@@ -29,6 +29,7 @@ public IP addresses, communicating exclusively via **private IPs**.
 
 ## Repository Structure
 
+```
 /terraform
 ├── main.tf
 ├── backend.tf
@@ -53,11 +54,12 @@ The Terraform solution provisions:
 ### Terraform Evidence
 
 **Remote backend configuration**
-  
-![S3 Backend](terraform/photos/s3.png)  
+
+![S3 Backend](terraform/photos/s3.png)
 ![DynamoDB Lock](terraform/photos/dynamodb.png)
 
 **Private SSH connectivity**
+```
   
 NodeA → NodeB  
 ![NodeA to NodeB](terraform/photos/NodeA-NodeB.png)
@@ -90,10 +92,10 @@ the same architecture:
 **Private SSH connectivity**
   
 NodeA → NodeB  
-![NodeA to NodeB](cloudformation/photos/NodeA-NodeB.png)
+![NodeA to NodeB](cloudformation/photos/Node_A-Node_B.png)
 
 NodeB → NodeA  
-![NodeB to NodeA](cloudformation/photos/NodeB-NodeA.png)
+![NodeB to NodeA](cloudformation/photos/Node_B-Node_A.png)
 
 ---
 
