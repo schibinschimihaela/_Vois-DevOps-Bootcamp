@@ -41,6 +41,7 @@ public IP addresses, communicating exclusively via **private IPs**.
 /cloudformation
 ├── episode2.yaml
 └── photos/
+```
 
 ## Terraform Implementation
 
