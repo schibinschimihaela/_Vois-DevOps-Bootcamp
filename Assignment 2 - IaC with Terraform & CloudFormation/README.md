@@ -60,8 +60,6 @@ The Terraform solution provisions:
 ![DynamoDB Lock](terraform/photos/dynamodb.png)
 
 **Private SSH connectivity**
-```
-  
 NodeA → NodeB  
 ![NodeA to NodeB](terraform/photos/NodeA-NodeB.png)
 
@@ -91,7 +89,7 @@ the same architecture:
 ![Stack Resources](cloudformation/photos/stack_resources.png)
 
 **Private SSH connectivity**
-  
+
 NodeA → NodeB  
 ![NodeA to NodeB](cloudformation/photos/Node_A-Node_B.png)
 
