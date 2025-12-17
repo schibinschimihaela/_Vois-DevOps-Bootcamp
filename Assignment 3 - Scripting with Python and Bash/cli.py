@@ -151,7 +151,7 @@ def action_aws_status() -> None:
         sts = boto3.client("sts", region_name=region if region else None)
         ident = sts.get_caller_identity()
         console.print(
-            f"[green]✔ Auth OK[/green]\n"
+            f"[green] Auth OK [/green]\n"
             f"Account: [bold]{ident.get('Account')}[/bold]\n"
             f"ARN: {ident.get('Arn')}"
         )
