@@ -1,0 +1,21 @@
+{
+  "stage": "stage",
+  "region": "eu-west-1",
+  "profile": "personal-cli",
+  "network": {
+    "stackName": "todo-stage-network",
+    "vpcCidr": "10.30.0.0/16",
+    "subnetACidr": "10.30.1.0/24",
+    "subnetBCidr": "10.30.2.0/24",
+    "dynamoDbPrefixList": "pl-6fa54006"
+  },
+  "runtime": {
+    "vpc": {
+      "sg": "sg-0a571b380cd9dd1b1",
+      "subnets": [
+        "subnet-081fec8db35ec4fc7",
+        "subnet-0e302d59b7c559a41"
+      ]
+    }
+  }
+}
