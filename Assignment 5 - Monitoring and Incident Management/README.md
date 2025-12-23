@@ -111,13 +111,13 @@ This deployment automatically installed and configured:
 
 ---
 
-## 11. Node Exporter
+## Node Exporter
 Node Exporter was installed automatically as part of the Helm chart and runs as a **DaemonSet**.  
 It exposes node-level system metrics which are scraped by Prometheus using a dedicated ServiceMonitor.
 
 ---
 
-## 12. cAdvisor
+## cAdvisor
 cAdvisor is integrated into the Kubernetes **kubelet** and does not run as a standalone container.  
 Prometheus collects container-level metrics via the kubelet `/metrics/cadvisor` endpoint, enabled through the `mon-kube-prometheus-stack-kubelet` ServiceMonitor.
 
@@ -127,7 +127,7 @@ These metrics include:
 
 ---
 
-## 13. Grafana Data Source
+## Grafana Data Source
 Grafana was installed via Helm and connected to Prometheus using an automatically provisioned Prometheus data source.  
 No manual data source configuration was required.
 
@@ -137,7 +137,7 @@ No manual data source configuration was required.
 
 ---
 
-## 14. Grafana Dashboard
+## Grafana Dashboard
 A custom Grafana dashboard was created with the following panels:
 - **Total CPU Usage (% of node)**
 - **Total Memory Usage (% of node)**
@@ -150,7 +150,7 @@ System pods were filtered where appropriate to improve readability.
 
 ---
 
-## 15. Alert Configuration
+## Alert Configuration
 Two threshold-based alerts were configured to detect resource exhaustion:
 
 ### High CPU Usage
