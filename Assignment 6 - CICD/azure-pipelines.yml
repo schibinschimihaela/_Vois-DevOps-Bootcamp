@@ -1,0 +1,38 @@
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- task: UsePythonVersion@0
+  inputs:
+    versionSpec: '3.x'
+
+- script: |
+    pip install -r requirements.txt
+  displayName: 'Install dependencies'
+
+- script: |
+    python -m unittest discover
+  displayName: 'Run unit tests'
+
+- script: |
+    zip -r app.zip .
+  displayName: 'Package application'
+
+- script: |
+    echo "$EC2_SSH_KEY" > key.pem
+    chmod 600 key.pem
+  displayName: 'Prepare SSH key'
+
+- script: |
+    scp -i key.pem -o StrictHostKeyChecking=no app.zip deploy.sh $EC2_USER@$EC2_HOST:/home/$EC2_USER/
+  displayName: 'Copy files to EC2'
+
+- script: |
+    ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "
+      chmod +x deploy.sh &&
+      ./deploy.sh
+    "
+  displayName: 'Deploy on EC2'
