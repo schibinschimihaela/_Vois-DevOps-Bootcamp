@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  # PostgreSQL Database
+  db:
+    image: postgres:15
+    container_name: postgres_db
+
+    # Import variables from .env file
+    env_file:
+      - .env
+
+    # Map environment variables required by Postgres
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+
+    # Volume for data persistence
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Node.js Application
+  app:
+    build: .
+    container_name: node_app
+
+    # Import the same variables for the application
+    env_file:
+      - .env
+
+    # Application starts after the DB
+    depends_on:
+      - db
+
+    # Application port
+    ports:
+      - "3000:3000"
+
+# Volumes Section
+volumes:
+  postgres_data:
