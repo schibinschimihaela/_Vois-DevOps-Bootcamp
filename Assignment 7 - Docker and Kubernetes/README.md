@@ -15,8 +15,11 @@ A virtual machine includes a full guest operating system, making it heavier and 
 
 ### Q1.2 – Docker command matching
 A - 3
+
 B - 2
+
 C - 1
+
 
 ---
 
@@ -44,14 +47,14 @@ A named volume is managed by Docker, is independent of the host directory struct
 
 ### Q2.1 – Basic Dockerfile for a Python app
 
-![Q2.1](photos/q21.png)
+![Q2.1](Docker/photos/q21.png)
 
 ---
 
 ### Q2.2 – Multi-stage Dockerfile
 A multi-stage Dockerfile separates build dependencies from the runtime image, resulting in smaller and more secure images.
 
-![Q2.2](photos/q22.png)
+![Q2.2](Docker/photos/q22.png)
 
 ---
 
@@ -64,7 +67,7 @@ Docker caches image layers so that unchanged layers are reused during subsequent
 
 ### Q3.1 – docker-compose.yml for Python app + Redis
 
-![Q3.1](photos/q31.png)
+![Q3.1](Docker/photos/q31.png)
 
 ---
 
@@ -82,7 +85,7 @@ Docker Compose is useful when running multiple dependent containers locally, suc
 
 ### Q4.1 – Node.js app with PostgreSQL (Docker Compose)
 
-![Q4.1](photos/q41.png)
+![Q4.1](Docker/photos/q41.png)
 
 A docker-compose.yml file was created containing:
 - a Node.js application service
