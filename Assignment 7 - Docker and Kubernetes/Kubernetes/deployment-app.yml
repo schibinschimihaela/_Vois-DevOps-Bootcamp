@@ -6,7 +6,7 @@ spec:
   replicas: 1
   template:
     spec:
-      serviceAccountName: app-sa
+      serviceAccountName: app-service-account
       containers:
         - name: my-app
           image: my-image
