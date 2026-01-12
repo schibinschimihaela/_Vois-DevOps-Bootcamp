@@ -6,12 +6,6 @@ KUBECTL = kubectl
 HELM = helm
 NAMESPACE = taskmanager
 
-help: ## Show this help message
-	@echo 'Usage: make [target]'
-	@echo ''
-	@echo 'Available targets:'
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
-
 build: ## Build all Docker images
 	$(DOCKER_COMPOSE) build
 
@@ -29,7 +23,7 @@ clean: ## Remove all containers, volumes, and images
 
 test: ## Test the application
 	@echo "Testing backend health..."
-	@curl -f http://localhost:5000/health || exit 1
+	@curl -f http://localhost:5001/health || exit 1
 	@echo "Testing frontend..."
 	@curl -f http://localhost:3000 || exit 1
 	@echo "All tests passed!"
@@ -44,13 +38,13 @@ k8s-status: ## Check Kubernetes deployment status
 	$(KUBECTL) get all -n $(NAMESPACE)
 
 helm-install: ## Install with Helm
-	$(HELM) install taskmanager ./helm/taskmanager --create-namespace --namespace $(NAMESPACE)
+	$(HELM) install taskmanager ./helm/taskmanager
 
 helm-upgrade: ## Upgrade Helm release
-	$(HELM) upgrade taskmanager ./helm/taskmanager --namespace $(NAMESPACE)
+	$(HELM) upgrade taskmanager ./helm/taskmanager
 
 helm-uninstall: ## Uninstall Helm release
-	$(HELM) uninstall taskmanager --namespace $(NAMESPACE)
+	$(HELM) uninstall taskmanager
 
 helm-template: ## Show Helm template output
 	$(HELM) template taskmanager ./helm/taskmanager

@@ -4,39 +4,39 @@ A complete full-stack application featuring a React frontend, Express.js backend
 
 ## Overview
 
-This project demonstrates a complete DevOps workflow from application development to production deployment on Kubernetes. It includes:
+This project demonstrates a complete DevOps workflow on Kubernetes. It includes:
 
 - **Part 1**: Dockerization with multi-stage builds, health checks, and security best practices
 - **Part 2**: Kubernetes deployment with ConfigMaps, Secrets, Persistent Volumes, and HPA
 - **Part 3**: Helm chart packaging for reusable, configurable deployments
-- **Part 4**: Complete documentation with architecture diagrams and operational guides
+- **Part 4**: Documentation
 
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    Kubernetes Cluster                    │
-│                                                          │
-│  ┌──────────────────────────────────────────────────┐  │
-│  │              Ingress Controller                   │  │
-│  │         (taskmanager.local)                       │  │
-│  └────────────────┬─────────────────────────────────┘  │
-│                   │                                      │
-│         ┌─────────┴──────────┐                          │
-│         │                    │                          │
-│  ┌──────▼──────┐      ┌──────▼──────┐                  │
-│  │  Frontend   │      │   Backend   │                  │
-│  │  (React)    │      │  (Express)  │                  │
-│  │  Port: 3000   │      │  Port: 5000 │                  │
-│  │  Replicas: 2│      │  Replicas: 2│                  │
-│  │  HPA: 2-5   │      │  HPA: 2-5   │                  │
-│  └─────────────┘      └──────┬──────┘                  │
-│                              │                          │
-│                       ┌──────▼──────┐                   │
-│                       │  PostgreSQL │                   │
-│                       │  Port: 5432 │                   │
-│                       │  PVC: 1Gi   │                   │
-│                       └─────────────┘                   │
+│                    Kubernetes Cluster                   │
+│                                                         │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │              Ingress Controller                  │   │
+│  │              (taskmanager.local)                 │   │
+│  └────────────────────────┬─────────────────────────┘   │
+│                           │                             │
+│                 ┌─────────┴──────────┐                  │
+│                 │                    │                  │
+│          ┌──────▼──────┐      ┌──────▼──────┐           │
+│          │  Frontend   │      │   Backend   │           │
+│          │  (React)    │      │  (Express)  │           │
+│          │  Port: 3000 │      │  Port: 5000 │           │
+│          │  Replicas: 2│      │  Replicas: 2│           │
+│          │  HPA: 2-5   │      │  HPA: 2-5   │           │
+│          └─────────────┘      └──────┬──────┘           │
+│                                      │                  │
+│                               ┌──────▼──────┐           │
+│                               │  PostgreSQL │           │
+│                               │  Port: 5432 │           │
+│                               │  PVC: 1Gi   │           │
+│                               └─────────────┘           │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -63,7 +63,6 @@ This project demonstrates a complete DevOps workflow from application developmen
 -  Reusable templates with parameterization
 -  values.yaml for easy customization
 -  Proper chart structure and metadata
--  Support for different environments
 
 ## Prerequisites
 
@@ -117,6 +116,7 @@ This project demonstrates a complete DevOps workflow from application developmen
 #### Step 2: Build Docker Images
 
 Images are already built from Docker Compose, but you can verify:
+
 ```bash
 docker images | grep assignment7-bonus
 ```
@@ -170,7 +170,7 @@ kubectl get all -n taskmanager
 
 ```bash
 
-Open: http://localhost:8080
+Open: http://localhost:3000
 
 ```
 
@@ -179,41 +179,51 @@ Open: http://localhost:8080
 ### Docker Compose
 
 ![Docker Compose Running](photos/docker-compose-ps.png)
+
 *All containers running successfully with Docker Compose*
 
 ![Docker Images](photos/docker-images.png)
+
 *Built Docker images*
 
 ### Kubernetes Deployment
 
 ![All Resources](photos/all-resources.png)
+
 *All Kubernetes resources deployed in the taskmanager namespace*
 
 ![Pods Running](photos/pods.png)
+
 *All pods in Running state*
 
 ![Services](photos/services.png)
+
 *Kubernetes services configuration*
 
 ![HPA Status](photos/hpa.png)
+
 *Horizontal Pod Autoscaler configuration*
 
 ### Backend API
 
 ![Backend Health Check](photos/be-health.png)
+
 *Backend health endpoint responding*
 
 ![Backend Tasks API](photos/be-api-tasks.png)
+
 *Tasks API returning data from PostgreSQL*
 
 ### Helm Deployment
 
 ![Helm Deploy](photos/helm-deploy.png)
+
 *Successful Helm chart deployment*
 
 ### Application UI
 
 ![Application Interface](photos/ui.png)
+
 *Working Task Manager application with add/delete functionality*
 
 ## Monitoring & Debugging
@@ -243,7 +253,6 @@ kubectl describe pod <pod-name> -n taskmanager
 # Get events
 kubectl get events -n taskmanager --sort-by='.lastTimestamp'
 ```
-
 
 ### HPA Status
 
