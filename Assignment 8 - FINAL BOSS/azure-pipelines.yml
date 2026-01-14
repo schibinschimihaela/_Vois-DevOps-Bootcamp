@@ -23,12 +23,12 @@ stages:
 
     - script: |
         python -m pip install --upgrade pip
-        cd cli
+        cd "Assignment 8 - FINAL BOSS/cli"
         pip install -r requirements.txt
       displayName: Install Python dependencies
 
     - script: |
-        python cli/cli.py --help || true
+        python "Assignment 8 - FINAL BOSS/cli/cli.py" --help || true
       displayName: Test
 
     - script: |
