@@ -1,6 +1,9 @@
 trigger:
 - none
 
+variables:
+- group: aws-cred-mihaela
+
 pool:
   vmImage: ubuntu-latest
 
