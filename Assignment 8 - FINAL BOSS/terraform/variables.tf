@@ -20,3 +20,8 @@ variable "key_name" {
   description = "EC2 Key Pair name for SSH access"
   type        = string
 }
+
+variable "aws_account_id" {
+  description = "AWS Account ID"
+  type        = string
+}
