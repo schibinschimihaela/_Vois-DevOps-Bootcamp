@@ -24,8 +24,13 @@ jobs:
 
 - job: Infrastructure
   displayName: Infrastructure Management
+  variables:
+    TF_VAR_aws_account_id: $(AWS_ACCOUNT_ID)
+    TF_VAR_aws_region: $(AWS_REGION)
+    TF_VAR_key_name: ip-spectre-key
   steps:
   - checkout: self
+  
 
   - bash: |
       echo "Installing Terraform..."
@@ -37,38 +42,45 @@ jobs:
     displayName: Install Terraform CLI
 
   - bash: |
-      terraform init
+      terraform init -input=false
     displayName: Terraform Init
     workingDirectory: "$(PROJECT_ROOT)/terraform"
     env:
       AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-      AWS_REGION: $(AWS_REGION)
 
   - bash: |
+      unset TF_CLI_ARGS
+      unset TF_CLI_ARGS_validate
       terraform validate
     displayName: Terraform Validate
     workingDirectory: "$(PROJECT_ROOT)/terraform"
 
   - bash: |
-      terraform apply -auto-approve
+      terraform apply -auto-approve -input=false \
+        -var="aws_account_id=$(AWS_ACCOUNT_ID)" \
+        -var="aws_region=$(AWS_REGION)" \
+        -var="key_name=ip-spectre-key"
     displayName: Terraform Apply
     workingDirectory: "$(PROJECT_ROOT)/terraform"
     condition: eq('${{ parameters.terraformApply }}', true)
     env:
       AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-      AWS_REGION: $(AWS_REGION)
+
 
   - bash: |
-      terraform destroy -auto-approve
+      terraform destroy -auto-approve -input=false \
+        -var="aws_account_id=$(AWS_ACCOUNT_ID)" \
+        -var="aws_region=$(AWS_REGION)" \
+        -var="key_name=ip-spectre-key"
     displayName: Terraform Destroy
     workingDirectory: "$(PROJECT_ROOT)/terraform"
     condition: eq('${{ parameters.terraformDestroy }}', true)
     env:
       AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-      AWS_REGION: $(AWS_REGION)
+
 
 - job: Docker
   displayName: Build & Push Docker Image
@@ -91,7 +103,6 @@ jobs:
     env:
       AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-      AWS_REGION: $(AWS_REGION)
 
   - bash: |
       docker build -t ip-spectre -f docker/Dockerfile .
@@ -104,4 +115,3 @@ jobs:
     env:
       AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-      AWS_REGION: $(AWS_REGION)
