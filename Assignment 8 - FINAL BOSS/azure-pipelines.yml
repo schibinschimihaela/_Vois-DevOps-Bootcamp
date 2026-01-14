@@ -29,6 +29,7 @@ stages:
     #   displayName: Test
 
     - script: |
+        cd "Assignment 8 - FINAL BOSS"
         docker build -t ip-spectre -f docker/Dockerfile .
       displayName: Build Docker Image
 
