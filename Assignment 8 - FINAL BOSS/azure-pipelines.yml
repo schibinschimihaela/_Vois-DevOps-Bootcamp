@@ -20,113 +20,88 @@ parameters:
 pool:
   vmImage: ubuntu-latest
 
-stages:
+jobs:
 
-- stage: Setup
-  displayName: Setup Terraform
-  jobs:
-  - job: InstallTerraform
+- job: Infrastructure
+  displayName: Infrastructure Management
+  steps:
+  - checkout: self
+
+  - bash: |
+      echo "Installing Terraform..."
+      curl -fsSL https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip -o terraform.zip
+      unzip -q terraform.zip
+      sudo mv terraform /usr/local/bin/
+      rm terraform.zip
+      terraform version
     displayName: Install Terraform CLI
-    steps:
-    - script: |
-        curl -fsSL https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip -o terraform.zip
-        unzip terraform.zip
-        sudo mv terraform /usr/local/bin/
-        terraform version
-      displayName: Install Terraform
 
-- stage: Terraform_Validate
-  displayName: Terraform Validate
-  dependsOn: Setup
-  jobs:
-  - job: TerraformValidate
-    displayName: Terraform Init & Validate
-    steps:
-    - checkout: self
+  - bash: |
+      terraform init
+    displayName: Terraform Init
+    workingDirectory: "$(PROJECT_ROOT)/terraform"
+    env:
+      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+      AWS_REGION: $(AWS_REGION)
 
-    - script: |
-        terraform init -backend=false
-        terraform validate
-      displayName: Terraform Init & Validate
-      workingDirectory: "$(PROJECT_ROOT)/terraform"
-      env:
-        AWS_REGION: $(AWS_REGION)
+  - bash: |
+      terraform validate
+    displayName: Terraform Validate
+    workingDirectory: "$(PROJECT_ROOT)/terraform"
 
-- stage: Terraform_Apply
-  displayName: Terraform Apply (Create Infrastructure)
-  dependsOn: Terraform_Validate
-  condition: and(succeeded(), eq('${{ parameters.terraformApply }}', true))
-  jobs:
-  - job: TerraformApply
+  - bash: |
+      terraform apply -auto-approve
     displayName: Terraform Apply
-    steps:
-    - checkout: self
+    workingDirectory: "$(PROJECT_ROOT)/terraform"
+    condition: eq('${{ parameters.terraformApply }}', true)
+    env:
+      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+      AWS_REGION: $(AWS_REGION)
 
-    - script: |
-        terraform init
-        terraform apply -auto-approve
-      displayName: Terraform Apply
-      workingDirectory: "$(PROJECT_ROOT)/terraform"
-      env:
-        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-        AWS_REGION: $(AWS_REGION)
-
-- stage: Build_Push
-  displayName: Build & Push Docker Image
-  dependsOn: Terraform_Apply
-  condition: succeeded()
-  jobs:
-  - job: BuildAndPush
-    displayName: Build & Push to ECR
-    steps:
-    - checkout: self
-
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: '3.11'
-      displayName: Set up Python 3.11
-
-    - script: |
-        aws ecr get-login-password --region $(AWS_REGION) \
-          | docker login \
-            --username AWS \
-            --password-stdin $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
-      displayName: Login to Amazon ECR
-      env:
-        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-        AWS_REGION: $(AWS_REGION)
-
-    - script: |
-        docker build -t ip-spectre -f docker/Dockerfile .
-        docker tag ip-spectre:latest \
-          $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre:latest
-        docker push \
-          $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre:latest
-      displayName: Build & Push Docker Image to ECR
-      workingDirectory: "$(PROJECT_ROOT)"
-      env:
-        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-        AWS_REGION: $(AWS_REGION)
-
-- stage: Terraform_Destroy
-  displayName: Terraform Destroy (Delete Infrastructure)
-  dependsOn: Terraform_Validate
-  condition: and(succeeded(), eq('${{ parameters.terraformDestroy }}', true))
-  jobs:
-  - job: TerraformDestroy
+  - bash: |
+      terraform destroy -auto-approve
     displayName: Terraform Destroy
-    steps:
-    - checkout: self
+    workingDirectory: "$(PROJECT_ROOT)/terraform"
+    condition: eq('${{ parameters.terraformDestroy }}', true)
+    env:
+      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+      AWS_REGION: $(AWS_REGION)
 
-    - script: |
-        terraform init
-        terraform destroy -auto-approve
-      displayName: Terraform Destroy
-      workingDirectory: "$(PROJECT_ROOT)/terraform"
-      env:
-        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-        AWS_REGION: $(AWS_REGION)
+- job: Docker
+  displayName: Build & Push Docker Image
+  dependsOn: Infrastructure
+  condition: and(succeeded(), eq('${{ parameters.terraformApply }}', true))
+  steps:
+  - checkout: self
+
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '3.11'
+    displayName: Set up Python 3.11
+
+  - bash: |
+      aws ecr get-login-password --region $(AWS_REGION) \
+        | docker login \
+          --username AWS \
+          --password-stdin $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
+    displayName: Login to Amazon ECR
+    env:
+      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+      AWS_REGION: $(AWS_REGION)
+
+  - bash: |
+      docker build -t ip-spectre -f docker/Dockerfile .
+      docker tag ip-spectre:latest \
+        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre:latest
+      docker push \
+        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre:latest
+    displayName: Build & Push Docker Image to ECR
+    workingDirectory: "$(PROJECT_ROOT)"
+    env:
+      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+      AWS_REGION: $(AWS_REGION)

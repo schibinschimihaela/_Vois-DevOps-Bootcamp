@@ -1,7 +1,9 @@
-output "dynamodb_table_name" {
-  value = aws_dynamodb_table.ip_spectre.name
+output "ec2_public_ip" {
+  description = "Public IP of EC2 instance"
+  value       = aws_instance.this.public_ip
 }
 
 output "ecr_repository_url" {
-  value = aws_ecr_repository.ip_spectre.repository_url
+  description = "ECR repository URL"
+  value       = aws_ecr_repository.this.repository_url
 }

@@ -1,11 +1,22 @@
+variable "project_name" {
+  description = "Project name prefix"
+  type        = string
+  default     = "ip-spectre"
+}
+
 variable "aws_region" {
   description = "AWS region"
   type        = string
   default     = "eu-west-1"
 }
 
-variable "table_name" {
-  description = "DynamoDB table name"
+variable "ssh_cidr" {
+  description = "CIDR allowed to SSH into EC2"
   type        = string
-  default     = "ip_spectre_logs"
+  default     = "0.0.0.0/0"
+}
+
+variable "key_name" {
+  description = "EC2 Key Pair name for SSH access"
+  type        = string
 }

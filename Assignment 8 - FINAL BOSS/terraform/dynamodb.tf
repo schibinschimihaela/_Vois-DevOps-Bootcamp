@@ -1,5 +1,5 @@
 resource "aws_dynamodb_table" "ip_spectre" {
-  name         = var.table_name
+  name         = "ip-spectre-logs"
   billing_mode = "PAY_PER_REQUEST"
   hash_key     = "ip"
 
@@ -9,7 +9,6 @@ resource "aws_dynamodb_table" "ip_spectre" {
   }
 
   tags = {
-    Project = "IP-SPECTRE"
-    Owner   = "Architect-of-the-Net"
+    Name = "ip-spectre-dynamodb"
   }
 }
