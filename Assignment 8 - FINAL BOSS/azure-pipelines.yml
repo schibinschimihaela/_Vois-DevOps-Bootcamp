@@ -44,10 +44,12 @@ stages:
     steps:
     - checkout: self
 
-    - task: TerraformInstaller@1
-      inputs:
-        terraformVersion: '1.6.6'
-      displayName: Install Terraform
+    - script: |
+        curl -fsSL https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip -o terraform.zip
+        unzip terraform.zip
+        sudo mv terraform /usr/local/bin/
+        terraform version
+      displayName: Install Terraform CLI
 
     - script: |
         cd terraform
