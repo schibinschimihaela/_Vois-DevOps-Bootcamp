@@ -3,10 +3,17 @@ trigger:
 
 variables:
 - group: aws-cred-mihaela
+- name: PROJECT_ROOT
+  value: "Assignment 8 - FINAL BOSS"
 
 parameters:
 - name: terraformApply
   displayName: "Run Terraform Apply (create infrastructure)"
+  type: boolean
+  default: false
+
+- name: terraformDestroy
+  displayName: "Run Terraform Destroy (delete infrastructure)"
   type: boolean
   default: false
 
@@ -15,7 +22,7 @@ pool:
 
 stages:
 
-# STAGE 1 – TERRAFORM VALIDATE (ALWAYS)
+# Terraform Validate (always runs)
 - stage: Terraform_Validate
   displayName: Terraform Validate
   jobs:
@@ -32,14 +39,14 @@ stages:
       displayName: Install Terraform CLI
 
     - script: |
-        cd terraform
         terraform init -backend=false
         terraform validate
       displayName: Terraform Init & Validate
+      workingDirectory: "$(PROJECT_ROOT)/terraform"
       env:
         AWS_REGION: $(AWS_REGION)
 
-# STAGE 2 – TERRAFORM APPLY (OPTIONAL, MANUAL)
+# Terraform Apply (manual, optional)
 - stage: Terraform_Apply
   displayName: Terraform Apply (Create Infrastructure)
   dependsOn: Terraform_Validate
@@ -58,17 +65,17 @@ stages:
       displayName: Install Terraform CLI
 
     - script: |
-        cd terraform
         terraform init
         terraform apply -auto-approve
       displayName: Terraform Apply
+      workingDirectory: "$(PROJECT_ROOT)/terraform"
       env:
         AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
         AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
         AWS_REGION: $(AWS_REGION)
 
-# STAGE 3 – BUILD & PUSH DOCKER IMAGE
-- stage: Build_Test
+# Build & Push Docker Image to ECR (always runs)
+- stage: Build_Push
   displayName: Build & Push Docker Image
   dependsOn: Terraform_Apply
   condition: always()
@@ -88,10 +95,11 @@ stages:
           | docker login \
             --username AWS \
             --password-stdin $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
-      displayName: Login to ECR
+      displayName: Login to Amazon ECR
       env:
         AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
         AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+        AWS_REGION: $(AWS_REGION)
 
     - script: |
         docker build -t ip-spectre -f docker/Dockerfile .
@@ -99,7 +107,36 @@ stages:
           $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre:latest
         docker push \
           $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre:latest
-      displayName: Build & Push Docker Image
+      displayName: Build & Push Docker Image to ECR
+      workingDirectory: "$(PROJECT_ROOT)"
+      env:
+        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+        AWS_REGION: $(AWS_REGION)
+
+# Terraform Destroy (manual, optional)
+- stage: Terraform_Destroy
+  displayName: Terraform Destroy (Delete Infrastructure)
+  dependsOn: Build_Push
+  condition: eq('${{ parameters.terraformDestroy }}', true)
+  jobs:
+  - job: TerraformDestroy
+    displayName: Terraform Destroy
+    steps:
+    - checkout: self
+
+    - script: |
+        curl -fsSL https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip -o terraform.zip
+        unzip terraform.zip
+        sudo mv terraform /usr/local/bin/
+        terraform version
+      displayName: Install Terraform CLI
+
+    - script: |
+        terraform init
+        terraform destroy -auto-approve
+      displayName: Terraform Destroy
+      workingDirectory: "$(PROJECT_ROOT)/terraform"
       env:
         AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
         AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
