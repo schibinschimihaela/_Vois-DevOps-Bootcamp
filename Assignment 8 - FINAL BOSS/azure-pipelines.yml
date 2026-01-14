@@ -15,9 +15,34 @@ pool:
 
 stages:
 
-# STAGE 1 – TERRAFORM APPLY (OPTIONAL, MANUAL)
+# STAGE 1 – TERRAFORM VALIDATE (ALWAYS)
+- stage: Terraform_Validate
+  displayName: Terraform Validate
+  jobs:
+  - job: TerraformValidate
+    displayName: Terraform Init & Validate
+    steps:
+    - checkout: self
+
+    - script: |
+        curl -fsSL https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip -o terraform.zip
+        unzip terraform.zip
+        sudo mv terraform /usr/local/bin/
+        terraform version
+      displayName: Install Terraform CLI
+
+    - script: |
+        cd terraform
+        terraform init -backend=false
+        terraform validate
+      displayName: Terraform Init & Validate
+      env:
+        AWS_REGION: $(AWS_REGION)
+
+# STAGE 2 – TERRAFORM APPLY (OPTIONAL, MANUAL)
 - stage: Terraform_Apply
   displayName: Terraform Apply (Create Infrastructure)
+  dependsOn: Terraform_Validate
   condition: eq('${{ parameters.terraformApply }}', true)
   jobs:
   - job: TerraformApply
@@ -42,11 +67,11 @@ stages:
         AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
         AWS_REGION: $(AWS_REGION)
 
-# STAGE 2 – BUILD & PUSH DOCKER IMAGE TO ECR
+# STAGE 3 – BUILD & PUSH DOCKER IMAGE
 - stage: Build_Test
   displayName: Build & Push Docker Image
   dependsOn: Terraform_Apply
-  condition: succeededOrSkipped()
+  condition: always()
   jobs:
   - job: BuildAndPush
     displayName: Build & Push to ECR
@@ -59,7 +84,6 @@ stages:
       displayName: Set up Python 3.11
 
     - script: |
-        echo "Login to Amazon ECR"
         aws ecr get-login-password --region $(AWS_REGION) \
           | docker login \
             --username AWS \
@@ -68,7 +92,6 @@ stages:
       env:
         AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
         AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-        AWS_REGION: $(AWS_REGION)
 
     - script: |
         docker build -t ip-spectre -f docker/Dockerfile .
@@ -76,34 +99,8 @@ stages:
           $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre:latest
         docker push \
           $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre:latest
-      displayName: Build & Push Docker Image to ECR
+      displayName: Build & Push Docker Image
       env:
         AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
         AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-        AWS_REGION: $(AWS_REGION)
-
-# STAGE 3 – TERRAFORM VALIDATE
-
-- stage: Terraform_Validate
-  displayName: Terraform Validate
-  dependsOn: Build_Test
-  jobs:
-  - job: TerraformValidate
-    displayName: Terraform Init & Validate
-    steps:
-    - checkout: self
-
-    - script: |
-        curl -fsSL https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip -o terraform.zip
-        unzip terraform.zip
-        sudo mv terraform /usr/local/bin/
-        terraform version
-      displayName: Install Terraform CLI
-
-    - script: |
-        cd terraform
-        terraform init -backend=false
-        terraform validate
-      displayName: Terraform Init & Validate
-      env:
         AWS_REGION: $(AWS_REGION)
