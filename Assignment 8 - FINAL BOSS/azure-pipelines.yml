@@ -43,19 +43,23 @@ stages:
     steps:
     - checkout: self
 
-    - script: |
-        curl -fsSL https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip -o terraform.zip
-        unzip terraform.zip
-        sudo mv terraform /usr/local/bin/
-        terraform version
-      displayName: Install Terraform CLI
+    - script: terraform version
+      displayName: 'Check Terraform Version'
+
+    # - script: |
+    #     curl -fsSL https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip -o terraform.zip
+    #     unzip terraform.zip
+    #     sudo mv terraform /usr/local/bin/
+    #     terraform version
+    #   displayName: Install Terraform CLI
+
+    # - script: |
+    #     cd terraform
+    #     terraform init -backend=false
+    #   displayName: Terraform Init
 
     - script: |
         cd terraform
         terraform init -backend=false
-      displayName: Terraform Init
-
-    - script: |
-        cd terraform
         terraform validate
-      displayName: Terraform Validate
+      displayName: Terraform Init & Validate
