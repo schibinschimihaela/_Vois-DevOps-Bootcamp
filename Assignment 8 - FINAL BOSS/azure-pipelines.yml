@@ -4,15 +4,52 @@ trigger:
 variables:
 - group: aws-cred-mihaela
 
+parameters:
+- name: terraformApply
+  displayName: "Run Terraform Apply (create infrastructure)"
+  type: boolean
+  default: false
+
 pool:
   vmImage: ubuntu-latest
 
 stages:
-- stage: Build_Test
-  displayName: Build & Test
+
+# STAGE 1 – TERRAFORM APPLY (OPTIONAL, MANUAL)
+- stage: Terraform_Apply
+  displayName: Terraform Apply (Create Infrastructure)
+  condition: eq('${{ parameters.terraformApply }}', true)
   jobs:
-  - job: Python_CLI
-    displayName: Python Test
+  - job: TerraformApply
+    displayName: Terraform Apply
+    steps:
+    - checkout: self
+
+    - script: |
+        curl -fsSL https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip -o terraform.zip
+        unzip terraform.zip
+        sudo mv terraform /usr/local/bin/
+        terraform version
+      displayName: Install Terraform CLI
+
+    - script: |
+        cd terraform
+        terraform init
+        terraform apply -auto-approve
+      displayName: Terraform Apply
+      env:
+        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+        AWS_REGION: $(AWS_REGION)
+
+# STAGE 2 – BUILD & PUSH DOCKER IMAGE TO ECR
+- stage: Build_Test
+  displayName: Build & Push Docker Image
+  dependsOn: Terraform_Apply
+  condition: succeededOrSkipped()
+  jobs:
+  - job: BuildAndPush
+    displayName: Build & Push to ECR
     steps:
     - checkout: self
 
@@ -31,9 +68,9 @@ stages:
       env:
         AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
         AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+        AWS_REGION: $(AWS_REGION)
 
     - script: |
-        cd "Assignment 8 - FINAL BOSS"
         docker build -t ip-spectre -f docker/Dockerfile .
         docker tag ip-spectre:latest \
           $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre:latest
@@ -43,13 +80,15 @@ stages:
       env:
         AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
         AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+        AWS_REGION: $(AWS_REGION)
 
+# STAGE 3 – TERRAFORM VALIDATE
 
 - stage: Terraform_Validate
   displayName: Terraform Validate
   dependsOn: Build_Test
   jobs:
-  - job: Terraform
+  - job: TerraformValidate
     displayName: Terraform Init & Validate
     steps:
     - checkout: self
@@ -66,3 +105,5 @@ stages:
         terraform init -backend=false
         terraform validate
       displayName: Terraform Init & Validate
+      env:
+        AWS_REGION: $(AWS_REGION)
