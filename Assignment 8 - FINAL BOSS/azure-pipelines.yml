@@ -22,61 +22,20 @@ pool:
 
 jobs:
 
-- job: Infrastructure
-  displayName: Infrastructure Management
+- job: TerraformECR
+  displayName: Terraform - Create ECR Repositories
+  condition: eq('${{ parameters.terraformApply }}', true)
   variables:
     TF_VAR_aws_account_id: $(AWS_ACCOUNT_ID)
     TF_VAR_aws_region: $(AWS_REGION)
-    TF_VAR_key_name: ip-spectre-key
   steps:
   - checkout: self
-  
-
-  - bash: |
-      echo "Installing Terraform..."
-      curl -fsSL https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip -o terraform.zip
-      unzip -q terraform.zip
-      sudo mv terraform /usr/local/bin/
-      rm terraform.zip
-      terraform version
-    displayName: Install Terraform CLI
-
+  - template: install-terraform.yml
   - bash: |
       terraform init -input=false
-    displayName: Terraform Init
-    workingDirectory: "$(PROJECT_ROOT)/terraform"
-    env:
-      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-
-  - bash: |
-      unset TF_CLI_ARGS
-      unset TF_CLI_ARGS_validate
-      terraform validate
-    displayName: Terraform Validate
-    workingDirectory: "$(PROJECT_ROOT)/terraform"
-
-  - bash: |
-      terraform apply -auto-approve -input=false \
-        -var="aws_account_id=$(AWS_ACCOUNT_ID)" \
-        -var="aws_region=$(AWS_REGION)" \
-        -var="key_name=ip-spectre-key"
-    displayName: Terraform Apply
-    workingDirectory: "$(PROJECT_ROOT)/terraform"
-    condition: eq('${{ parameters.terraformApply }}', true)
-    env:
-      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
-
-
-  - bash: |
-      terraform destroy -auto-approve -input=false \
-        -var="aws_account_id=$(AWS_ACCOUNT_ID)" \
-        -var="aws_region=$(AWS_REGION)" \
-        -var="key_name=ip-spectre-key"
-    displayName: Terraform Destroy
-    workingDirectory: "$(PROJECT_ROOT)/terraform"
-    condition: eq('${{ parameters.terraformDestroy }}', true)
+      terraform apply -auto-approve
+    displayName: Terraform Apply ECR
+    workingDirectory: "$(PROJECT_ROOT)/terraform/ecr"
     env:
       AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
@@ -84,7 +43,7 @@ jobs:
 
 - job: Docker
   displayName: Build & Push Docker Image
-  dependsOn: Infrastructure
+  dependsOn: TerraformECR
   condition: and(succeeded(), eq('${{ parameters.terraformApply }}', true))
   steps:
   - checkout: self
@@ -105,13 +64,99 @@ jobs:
       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
 
   - bash: |
-      docker build -t ip-spectre -f docker/Dockerfile .
-      docker tag ip-spectre:latest \
-        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre:latest
+      docker build -t ip-spectre-backend -f docker/Dockerfile .
+      docker tag ip-spectre-backend:latest \
+        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-backend:latest
       docker push \
-        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre:latest
-    displayName: Build & Push Docker Image to ECR
+        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-backend:latest
+    displayName: Build & Push Backend Docker Image to ECR
     workingDirectory: "$(PROJECT_ROOT)"
+    env:
+      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+
+  - bash: |
+      docker build -t ip-spectre-frontend frontend/
+      docker tag ip-spectre-frontend:latest \
+        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-frontend:latest
+      docker push \
+        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-frontend:latest
+    displayName: Build & Push Frontend Docker Image to ECR
+    workingDirectory: "$(PROJECT_ROOT)"
+    env:
+      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+
+- job: Infrastructure
+  displayName: Infrastructure Management
+  dependsOn:
+    - Docker
+    - TerraformECR
+  condition: or(
+    eq('${{ parameters.terraformApply }}', true),
+    eq('${{ parameters.terraformDestroy }}', true)
+    )
+  variables:
+    TF_VAR_aws_account_id: $(AWS_ACCOUNT_ID)
+    TF_VAR_aws_region: $(AWS_REGION)
+    TF_VAR_key_name: ip-spectre-key
+  steps:
+  - checkout: self
+  - template: install-terraform.yml
+
+  # - bash: |
+  #     echo "Installing Terraform..."
+  #     curl -fsSL https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip -o terraform.zip
+  #     unzip -q terraform.zip
+  #     sudo mv terraform /usr/local/bin/
+  #     rm terraform.zip
+  #     terraform version
+  #   displayName: Install Terraform CLI
+
+  - bash: |
+      terraform init -input=false
+    displayName: Terraform Init
+    workingDirectory: "$(PROJECT_ROOT)/terraform/infra"
+    env:
+      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+
+  - bash: |
+      unset TF_CLI_ARGS
+      unset TF_CLI_ARGS_validate
+      terraform validate
+    displayName: Terraform Validate
+    workingDirectory: "$(PROJECT_ROOT)/terraform/infra"
+
+  - bash: |
+      terraform apply -auto-approve \
+        -var="aws_account_id=$(AWS_ACCOUNT_ID)" \
+        -var="aws_region=$(AWS_REGION)" \
+        -var="key_name=ip-spectre-key"
+    displayName: Terraform Apply
+    workingDirectory: "$(PROJECT_ROOT)/terraform/infra"
+    condition: eq('${{ parameters.terraformApply }}', true)
+    env:
+      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+
+  - bash: |
+      terraform destroy -auto-approve \
+        -var="aws_account_id=$(AWS_ACCOUNT_ID)" \
+        -var="aws_region=$(AWS_REGION)" \
+        -var="key_name=ip-spectre-key"
+    displayName: Terraform Destroy
+    workingDirectory: "$(PROJECT_ROOT)/terraform/infra"
+    condition: eq('${{ parameters.terraformDestroy }}', true)
+    env:
+      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+
+  - bash: |
+      terraform destroy -auto-approve
+    displayName: Terraform Destroy ECR
+    workingDirectory: "$(PROJECT_ROOT)/terraform/ecr"
+    condition: eq('${{ parameters.terraformDestroy }}', true)
     env:
       AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)

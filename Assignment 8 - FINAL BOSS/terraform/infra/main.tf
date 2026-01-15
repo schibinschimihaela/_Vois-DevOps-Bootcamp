@@ -1,16 +1,3 @@
-resource "aws_ecr_repository" "this" {
-  name = var.project_name
-  force_delete = true
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  tags = {
-    Name = var.project_name
-  }
-}
-
 resource "aws_iam_role" "ec2_role" {
   name = "${var.project_name}-ec2-role"
 
