@@ -1,0 +1,46 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [
+            "AWS/EC2",
+            "CPUUtilization",
+            "InstanceId",
+            "${INSTANCE_ID}"
+          ]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "${AWS_REGION}",
+        "title": "EC2 CPU Utilization (%)"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [
+            "AWS/EC2",
+            "NetworkIn",
+            "InstanceId",
+            "${INSTANCE_ID}"
+          ]
+        ],
+        "period": 300,
+        "stat": "Sum",
+        "region": "${AWS_REGION}",
+        "title": "EC2 Network In (Bytes)"
+      }
+    }
+  ]
+}

@@ -46,6 +46,12 @@ services:
       - AWS_DEFAULT_REGION=eu-west-1
     networks:
       - app-network
+    logging:
+      driver: "awslogs"
+      options:
+        awslogs-group: "/ip-spectre/backend"
+        awslogs-region: "${AWS_REGION}"
+        awslogs-stream-prefix: backend
     restart: unless-stopped
 
   frontend:
@@ -59,6 +65,12 @@ services:
       - backend
     networks:
       - app-network
+    logging:
+      driver: "awslogs"
+      options:
+        awslogs-group: "/ip-spectre/frontend"
+        awslogs-region: "${AWS_REGION}"
+        awslogs-stream-prefix: frontend
     restart: unless-stopped
 
 networks:
