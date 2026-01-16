@@ -16,7 +16,7 @@ from api.geolocation import locate_ip
 
 console = Console()
 
-TABLE_NAME = "ip_spectre_logs"
+TABLE_NAME = "ip-spectre-logs"
 
 
 def clear_screen() -> None:

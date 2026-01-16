@@ -38,18 +38,32 @@ cat <<EOF > /home/ubuntu/docker-compose.yml
 services:
   backend:
     image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}-backend:$BACKEND_TAG
+    container_name: backend
     ports:
       - "8080:8080"
     environment:
-      AWS_REGION: eu-west-1
-      AWS_DEFAULT_REGION: eu-west-1
+      - AWS_REGION=eu-west-1
+      - AWS_DEFAULT_REGION=eu-west-1
+    networks:
+      - app-network
+    restart: unless-stopped
 
   frontend:
     image: ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${PROJECT_NAME}-frontend:$FRONTEND_TAG
+    container_name: frontend
     ports:
       - "80:80"
+    environment:
+      - API_GATEWAY_URL=${API_GATEWAY_URL}
     depends_on:
       - backend
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge
 EOF
 
 chown ubuntu:ubuntu /home/ubuntu/docker-compose.yml

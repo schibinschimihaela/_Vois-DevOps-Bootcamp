@@ -87,8 +87,10 @@ resource "aws_instance" "this" {
     AWS_REGION     = var.aws_region
     AWS_ACCOUNT_ID = var.aws_account_id
     PROJECT_NAME   = var.project_name
+    API_GATEWAY_URL = aws_apigatewayv2_api.this.api_endpoint
   })
 
+  user_data_replace_on_change = true
 
   tags = {
     Name = "ip-spectre-ec2"

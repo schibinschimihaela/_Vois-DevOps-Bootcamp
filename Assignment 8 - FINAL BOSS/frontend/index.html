@@ -3,30 +3,30 @@
 <head>
   <meta charset="UTF-8" />
   <title>IP Spectre</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="src/style.css" />
 </head>
 <body>
 
 <div class="app">
   <header>
-    <h1>IP SPECTRE</h1>
-    <p class="subtitle">Shadow Node Operator Console</p>
+    <h1>🔍 IP Spectre</h1>
+    <div class="subtitle">Advanced IP Intelligence System</div>
   </header>
 
-  <section class="controls">
-    <button onclick="scan()">Scan Current IP</button>
+  <div class="controls">
+    <button onclick="scanIP()">Scan IP</button>
     <button onclick="viewLogs()">View Logs</button>
-    <button class="danger" onclick="purgeLogs()">Purge Logs</button>
+    <button onclick="purgeLogs()" class="danger">Purge Logs</button>
     <button onclick="awsStatus()">AWS Status</button>
     <button onclick="showHelp()">Help</button>
-    <button onclick="clearUI()">Exit</button>
-  </section>
+    <button onclick="clearUI()">Clear</button>
+  </div>
 
-  <section id="loader" class="loader hidden">⧗ intercepting signal…</section>
-
-  <section id="output"></section>
+  <div id="status" class="loader hidden"></div>
+  <div id="result"></div>
 </div>
 
-<script src="app.js"></script>
+<script src="src/app.js"></script>
+
 </body>
 </html>
