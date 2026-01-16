@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Query
-from services.ip import scan_ip
-from services.logs import view_logs, purge_logs
-from services.aws import aws_status
+from app.services.logs import view_logs, purge_logs
+from app.services.ip import scan_ip
+from app.services.aws import aws_status
 
 app = FastAPI(title="IP Spectre API")
 

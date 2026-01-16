@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-TABLE_NAME = "ip_spectre_logs"
+TABLE_NAME = "ip-spectre-logs"
 dynamodb = boto3.resource("dynamodb", region_name=os.getenv("AWS_REGION"))
 
 def create_table():

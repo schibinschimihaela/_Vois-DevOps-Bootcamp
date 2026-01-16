@@ -2,7 +2,7 @@ import os
 import boto3
 from datetime import datetime
 
-TABLE_NAME = "ip_spectre_logs"
+TABLE_NAME = "ip-spectre-logs"
 region = os.getenv("AWS_REGION")
 dynamodb = boto3.resource("dynamodb", region_name=region)
 table = dynamodb.Table(TABLE_NAME)

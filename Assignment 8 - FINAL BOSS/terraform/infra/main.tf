@@ -13,6 +13,12 @@ resource "aws_iam_role" "ec2_role" {
   })
 }
 
+resource "aws_iam_role_policy_attachment" "dynamodb_access" {
+  role       = aws_iam_role.ec2_role.name
+  policy_arn = aws_iam_policy.ip_spectre_dynamodb.arn
+}
+
+
 resource "aws_iam_role_policy_attachment" "ecr_read" {
   role       = aws_iam_role.ec2_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
@@ -37,6 +43,13 @@ resource "aws_security_group" "this" {
   ingress {
     from_port   = 8080
     to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -71,8 +84,9 @@ resource "aws_instance" "this" {
   key_name               = var.key_name
 
   user_data = templatefile("${path.module}/user_data.sh", {
-  AWS_REGION     = var.aws_region
-  AWS_ACCOUNT_ID = var.aws_account_id
+    AWS_REGION     = var.aws_region
+    AWS_ACCOUNT_ID = var.aws_account_id
+    PROJECT_NAME   = var.project_name
   })
 
 

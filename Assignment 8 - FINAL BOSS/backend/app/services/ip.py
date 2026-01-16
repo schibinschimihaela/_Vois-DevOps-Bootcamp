@@ -1,6 +1,6 @@
-from api.ipify import get_ip
-from api.geolocation import locate_ip
-from services.logs import save_log
+from app.api.ipify import get_ip
+from app.api.geolocation import locate_ip
+from app.services.logs import save_log
 
 def scan_ip(ip: str | None = None):
     target_ip = ip or get_ip()

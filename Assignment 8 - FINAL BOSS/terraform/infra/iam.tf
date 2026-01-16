@@ -9,11 +9,12 @@ resource "aws_iam_policy" "ip_spectre_dynamodb" {
     Version = "2012-10-17"
     Statement = [{
       Effect = "Allow"
-      Action = [
+        Action = [
         "dynamodb:PutItem",
         "dynamodb:GetItem",
         "dynamodb:Scan",
         "dynamodb:DeleteItem",
+        "dynamodb:BatchWriteItem",
         "dynamodb:DescribeTable"
       ]
       Resource = aws_dynamodb_table.ip_spectre.arn
