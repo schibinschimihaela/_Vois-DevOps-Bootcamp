@@ -1,9 +1,18 @@
 from fastapi import FastAPI, Query
+from fastapi.middleware.cors import CORSMiddleware
 from app.services.logs import view_logs, purge_logs
 from app.services.ip import scan_ip
 from app.services.aws import aws_status
 
 app = FastAPI(title="IP Spectre API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
 @app.get("/scan")
 def scan(ip: str | None = Query(default=None)):
