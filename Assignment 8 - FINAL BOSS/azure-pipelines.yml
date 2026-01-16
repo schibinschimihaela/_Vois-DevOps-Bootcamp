@@ -153,6 +153,7 @@ jobs:
       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
 
   - bash: |
+      terraform init -input=false
       terraform destroy -auto-approve
     displayName: Terraform Destroy ECR
     workingDirectory: "$(PROJECT_ROOT)/terraform/ecr"
