@@ -1,67 +1,106 @@
 * {
   box-sizing: border-box;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Courier New", monospace;
 }
 
 body {
   margin: 0;
-  height: 100vh;
-  background: linear-gradient(135deg, #0f172a, #1e293b);
+  min-height: 100vh;
+  background: radial-gradient(circle at top, #020617, #000);
+  color: #e5e7eb;
   display: flex;
   justify-content: center;
-  align-items: center;
-  color: white;
 }
 
-.container {
-  background: #020617;
+.app {
+  width: 900px;
   padding: 30px;
-  width: 420px;
-  border-radius: 12px;
-  box-shadow: 0 0 30px rgba(0,0,0,0.6);
+}
+
+header {
   text-align: center;
+  margin-bottom: 25px;
 }
 
 h1 {
-  margin-bottom: 20px;
+  color: #22d3ee;
+  text-shadow: 0 0 12px #22d3ee;
 }
 
-input {
-  width: 100%;
-  padding: 10px;
-  border-radius: 6px;
-  border: none;
-  margin-bottom: 15px;
-  font-size: 16px;
-}
-
-button {
-  width: 100%;
-  padding: 10px;
-  background: #6366f1;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 16px;
-  cursor: pointer;
-}
-
-button:hover {
-  background: #4f46e5;
-}
-
-#status {
-  margin-top: 10px;
+.subtitle {
+  color: #94a3b8;
   font-size: 14px;
 }
 
-pre {
-  margin-top: 15px;
+.controls {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 25px;
+}
+
+button {
   background: #020617;
-  padding: 12px;
+  color: #22d3ee;
+  border: 1px solid #22d3ee;
+  padding: 10px;
+  cursor: pointer;
   border-radius: 6px;
-  max-height: 250px;
-  overflow-y: auto;
-  text-align: left;
+  transition: 0.2s;
+}
+
+button:hover {
+  background: #22d3ee;
+  color: black;
+  box-shadow: 0 0 10px #22d3ee;
+}
+
+button.danger {
+  border-color: #f43f5e;
+  color: #f43f5e;
+}
+
+button.danger:hover {
+  background: #f43f5e;
+  color: white;
+  box-shadow: 0 0 10px #f43f5e;
+}
+
+.loader {
+  text-align: center;
+  color: #22d3ee;
+  margin-bottom: 20px;
+  animation: blink 1.2s infinite;
+}
+
+.hidden {
+  display: none;
+}
+
+@keyframes blink {
+  50% { opacity: 0.4 }
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+th, td {
+  border: 1px solid #1e293b;
+  padding: 8px;
   font-size: 13px;
+}
+
+th {
+  background: #020617;
+  color: #22d3ee;
+}
+
+pre {
+  background: #020617;
+  padding: 15px;
+  border-radius: 8px;
+  overflow-x: auto;
 }

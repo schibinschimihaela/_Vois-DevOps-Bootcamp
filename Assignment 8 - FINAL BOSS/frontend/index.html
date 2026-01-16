@@ -7,22 +7,26 @@
 </head>
 <body>
 
-  <div class="container">
-    <h1> IP Spectre</h1>
+<div class="app">
+  <header>
+    <h1>IP SPECTRE</h1>
+    <p class="subtitle">Shadow Node Operator Console</p>
+  </header>
 
-    <input
-      id="ipInput"
-      type="text"
-      placeholder="Enter IP address"
-    />
+  <section class="controls">
+    <button onclick="scan()">Scan Current IP</button>
+    <button onclick="viewLogs()">View Logs</button>
+    <button class="danger" onclick="purgeLogs()">Purge Logs</button>
+    <button onclick="awsStatus()">AWS Status</button>
+    <button onclick="showHelp()">Help</button>
+    <button onclick="clearUI()">Exit</button>
+  </section>
 
-    <button id="analyzeBtn">Analyze IP</button>
+  <section id="loader" class="loader hidden">⧗ intercepting signal…</section>
 
-    <div id="status"></div>
+  <section id="output"></section>
+</div>
 
-    <pre id="result"></pre>
-  </div>
-
-  <script src="app.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

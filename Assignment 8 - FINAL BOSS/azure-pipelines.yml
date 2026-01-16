@@ -64,11 +64,12 @@ jobs:
       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
 
   - bash: |
-      docker build -t ip-spectre-backend -f docker/Dockerfile .
-      docker tag ip-spectre-backend:latest \
-        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-backend:latest
+      SHORT_SHA=$(echo $(Build.SourceVersion) | cut -c1-7)
+      docker build -t ip-spectre-backend:$SHORT_SHA -t ip-spectre-backend:$SHORT_SHA backend/
+      docker tag ip-spectre-backend:$SHORT_SHA \
+        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-backend:$SHORT_SHA
       docker push \
-        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-backend:latest
+        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-backend:$SHORT_SHA
     displayName: Build & Push Backend Docker Image to ECR
     workingDirectory: "$(PROJECT_ROOT)"
     env:
@@ -76,11 +77,12 @@ jobs:
       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
 
   - bash: |
-      docker build -t ip-spectre-frontend frontend/
-      docker tag ip-spectre-frontend:latest \
-        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-frontend:latest
+      SHORT_SHA=$(echo $(Build.SourceVersion) | cut -c1-7)
+      docker build -t ip-spectre-frontend:$SHORT_SHA -t ip-spectre-frontend:$SHORT_SHA frontend/
+      docker tag ip-spectre-frontend:$SHORT_SHA \
+        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-frontend:$SHORT_SHA
       docker push \
-        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-frontend:latest
+        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-frontend:$SHORT_SHA
     displayName: Build & Push Frontend Docker Image to ECR
     workingDirectory: "$(PROJECT_ROOT)"
     env:

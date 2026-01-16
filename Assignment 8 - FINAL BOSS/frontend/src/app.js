@@ -1,29 +1,90 @@
-const button = document.getElementById("analyzeBtn")
-const input = document.getElementById("ipInput")
-const result = document.getElementById("result")
-const status = document.getElementById("status")
+const API = "http://backend:8080"
+const out = document.getElementById("output")
+const loader = document.getElementById("loader")
 
-const API_URL = "http://backend:8080";
+function showLoader(show) {
+  loader.classList.toggle("hidden", !show)
+}
 
-button.addEventListener("click", async () => {
-  const ip = input.value.trim()
+function clearUI() {
+  out.innerHTML = ""
+}
 
-  if (!ip) {
-    status.textContent = "Please enter an IP address"
+function showJSON(data) {
+  out.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`
+}
+
+async function scan() {
+  showLoader(true)
+  clearUI()
+  const res = await fetch(`${API}/scan`)
+  showJSON(await res.json())
+  showLoader(false)
+}
+
+async function awsStatus() {
+  showLoader(true)
+  clearUI()
+  const res = await fetch(`${API}/aws/status`)
+  showJSON(await res.json())
+  showLoader(false)
+}
+
+async function showHelp() {
+  showJSON({
+    commands: [
+      "Scan Current IP",
+      "View Logs",
+      "Purge Logs",
+      "AWS Status",
+      "Help",
+      "Exit"
+    ]
+  })
+}
+
+async function viewLogs() {
+  showLoader(true)
+  clearUI()
+  const res = await fetch(`${API}/logs`)
+  const logs = await res.json()
+
+  if (!logs.length) {
+    out.textContent = "No logs found."
+    showLoader(false)
     return
   }
 
-  status.textContent = "Analyzing..."
-  result.textContent = ""
+  let html = `<table>
+    <tr>
+      <th>Timestamp</th>
+      <th>IP</th>
+      <th>City</th>
+      <th>Country</th>
+      <th>ISP</th>
+    </tr>`
 
-  try {
-    const response = await fetch(`${API_URL}?ip=${ip}`)
-    const data = await response.json()
+  logs.forEach(l => {
+    html += `
+      <tr>
+        <td>${l.timestamp}</td>
+        <td>${l.ip}</td>
+        <td>${l.city}</td>
+        <td>${l.country}</td>
+        <td>${l.isp}</td>
+      </tr>`
+  })
 
-    status.textContent = "Analysis complete"
-    result.textContent = JSON.stringify(data, null, 2)
-  } catch (error) {
-    status.textContent = "Failed to fetch data"
-    console.error(error)
-  }
-})
+  html += "</table>"
+  out.innerHTML = html
+  showLoader(false)
+}
+
+async function purgeLogs() {
+  if (!confirm("DELETE ALL LOGS?")) return
+  showLoader(true)
+  clearUI()
+  const res = await fetch(`${API}/logs`, { method: "DELETE" })
+  showJSON(await res.json())
+  showLoader(false)
+}
