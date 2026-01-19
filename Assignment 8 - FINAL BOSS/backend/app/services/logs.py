@@ -1,6 +1,6 @@
 import os
 import boto3
-from datetime import datetime
+from datetime import datetime, UTC
 
 TABLE_NAME = "ip-spectre-logs"
 region = os.getenv("AWS_REGION")
@@ -10,7 +10,7 @@ table = dynamodb.Table(TABLE_NAME)
 def save_log(ip, country, city, isp):
     table.put_item(Item={
         "ip": ip,
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": datetime.now(UTC).isoformat(),
         "country": country or "Unknown",
         "city": city or "Unknown",
         "isp": isp or "Unknown",

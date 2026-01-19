@@ -20,146 +20,446 @@ parameters:
 pool:
   vmImage: ubuntu-latest
 
-jobs:
-
-- job: TerraformECR
-  displayName: Terraform - Create ECR Repositories
+stages:
+  # ========== STAGE 1: CODE QUALITY ==========
+- stage: CodeQuality
+  displayName: 'Code Quality & Tests'
   condition: eq('${{ parameters.terraformApply }}', true)
-  variables:
-    TF_VAR_aws_account_id: $(AWS_ACCOUNT_ID)
-    TF_VAR_aws_region: $(AWS_REGION)
-  steps:
-  - checkout: self
-  - template: install-terraform.yml
-  - bash: |
-      terraform init -input=false
-      terraform apply -auto-approve
-    displayName: Terraform Apply ECR
-    workingDirectory: "$(PROJECT_ROOT)/terraform/ecr"
-    env:
-      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+  jobs:
+  - job: LintAndTest
+    displayName: 'Lint & Unit Tests'
+    steps:
+    - checkout: self
+    
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.11'
+      displayName: 'Set up Python 3.11'
 
+    # Linting
+    - bash: |
+        cd backend
+        python -m venv venv
+        source venv/bin/activate
+        pip install --upgrade pip
+        pip install flake8 black pylint
+        
+        echo "Running Black formatter check..."
+        black --check app/ || true
+        
+        echo "Running Flake8..."
+        flake8 app/ --max-line-length=120 --exclude=venv || true
+        
+        echo "Running Pylint..."
+        pylint app/ --disable=C0111,C0103 || true
+      displayName: 'Code Linting'
+      workingDirectory: "$(PROJECT_ROOT)"
+      continueOnError: true
 
-- job: Docker
-  displayName: Build & Push Docker Image
-  dependsOn: TerraformECR
+    # Unit Tests
+    - bash: |
+        cd backend
+        source venv/bin/activate
+        pip install -r requirements.txt
+        python -m pytest -v --junitxml=test-results.xml --cov=app --cov-report=xml --cov-report=html
+      displayName: 'Run Unit Tests'
+      workingDirectory: "$(PROJECT_ROOT)"
+
+    - task: PublishTestResults@2
+      condition: succeededOrFailed()
+      inputs:
+        testResultsFormat: 'JUnit'
+        testResultsFiles: '**/test-results.xml'
+        testRunTitle: 'Backend Unit Tests'
+        failTaskOnFailedTests: true
+      displayName: 'Publish Test Results'
+
+    - task: PublishCodeCoverageResults@1
+      condition: succeededOrFailed()
+      inputs:
+        codeCoverageTool: 'Cobertura'
+        summaryFileLocation: '$(PROJECT_ROOT)/backend/coverage.xml'
+        reportDirectory: '$(PROJECT_ROOT)/backend/htmlcov'
+      displayName: 'Publish Code Coverage'
+      
+  # ========== STAGE 2: INFRASTRUCTURE SETUP ==========
+- stage: InfraSetup
+  displayName: 'Setup Infrastructure'
+  dependsOn: CodeQuality
   condition: and(succeeded(), eq('${{ parameters.terraformApply }}', true))
-  steps:
-  - checkout: self
+  jobs:
+  - job: TerraformECR
+    displayName: 'Create ECR Repositories'
+    variables:
+      TF_VAR_aws_account_id: $(AWS_ACCOUNT_ID)
+      TF_VAR_aws_region: $(AWS_REGION)
+    steps:
+    - checkout: self
+    - template: install-terraform.yml
+    
+    - bash: |
+        terraform init -input=false
+        terraform apply -auto-approve
+      displayName: 'Terraform Apply ECR'
+      workingDirectory: "$(PROJECT_ROOT)/terraform/ecr"
+      env:
+        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
 
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '3.11'
-    displayName: Set up Python 3.11
+  # ========== STAGE 3: BUILD & PUSH ==========
+- stage: BuildAndPush
+  displayName: 'Build & Push Images'
+  dependsOn: InfraSetup
+  condition: and(succeeded(), eq('${{ parameters.terraformApply }}', true))
+  jobs:
+  - job: DockerBuild
+    displayName: 'Build & Push Docker Images'
+    steps:
+    - checkout: self
 
-  - bash: |
-      aws ecr get-login-password --region $(AWS_REGION) \
-        | docker login \
-          --username AWS \
-          --password-stdin $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
-    displayName: Login to Amazon ECR
-    env:
-      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+    - bash: |
+        aws ecr get-login-password --region $(AWS_REGION) \
+          | docker login \
+            --username AWS \
+            --password-stdin $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
+      displayName: 'Login to Amazon ECR'
+      env:
+        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
 
-  - bash: |
-      SHORT_SHA=$(echo $(Build.SourceVersion) | cut -c1-7)
-      docker build -t ip-spectre-backend:$SHORT_SHA -t ip-spectre-backend:$SHORT_SHA backend/
-      docker tag ip-spectre-backend:$SHORT_SHA \
-        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-backend:$SHORT_SHA
-      docker push \
-        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-backend:$SHORT_SHA
-    displayName: Build & Push Backend Docker Image to ECR
-    workingDirectory: "$(PROJECT_ROOT)"
-    env:
-      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+    - bash: |
+        SHORT_SHA=$(echo $(Build.SourceVersion) | cut -c1-7)
+        
+        echo "Building backend image..."
+        docker build -t ip-spectre-backend:$SHORT_SHA backend/
+        docker tag ip-spectre-backend:$SHORT_SHA \
+          $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-backend:$SHORT_SHA
+        docker push \
+          $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-backend:$SHORT_SHA
+        
+        echo "Building frontend image..."
+        docker build -t ip-spectre-frontend:$SHORT_SHA frontend/
+        docker tag ip-spectre-frontend:$SHORT_SHA \
+          $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-frontend:$SHORT_SHA
+        docker push \
+          $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-frontend:$SHORT_SHA
+      displayName: 'Build & Push Docker Images'
+      workingDirectory: "$(PROJECT_ROOT)"
+      env:
+        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
 
-  - bash: |
-      SHORT_SHA=$(echo $(Build.SourceVersion) | cut -c1-7)
-      docker build -t ip-spectre-frontend:$SHORT_SHA -t ip-spectre-frontend:$SHORT_SHA frontend/
-      docker tag ip-spectre-frontend:$SHORT_SHA \
-        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-frontend:$SHORT_SHA
-      docker push \
-        $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-frontend:$SHORT_SHA
-    displayName: Build & Push Frontend Docker Image to ECR
-    workingDirectory: "$(PROJECT_ROOT)"
-    env:
-      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+  # ========== STAGE 4: DEPLOY ==========
+- stage: Deploy
+  displayName: 'Deploy Infrastructure'
+  dependsOn: BuildAndPush
+  condition: and(succeeded(), eq('${{ parameters.terraformApply }}', true))
+  jobs:
+  - job: TerraformApply
+    displayName: 'Apply Terraform'
+    variables:
+      TF_VAR_aws_account_id: $(AWS_ACCOUNT_ID)
+      TF_VAR_aws_region: $(AWS_REGION)
+      TF_VAR_key_name: ip-spectre-key
+    steps:
+    - checkout: self
+    - template: install-terraform.yml
 
-- job: Infrastructure
-  displayName: Infrastructure Management
-  dependsOn:
-    - Docker
-    - TerraformECR
-  condition: or(
-    eq('${{ parameters.terraformApply }}', true),
-    eq('${{ parameters.terraformDestroy }}', true)
-    )
-  variables:
-    TF_VAR_aws_account_id: $(AWS_ACCOUNT_ID)
-    TF_VAR_aws_region: $(AWS_REGION)
-    TF_VAR_key_name: ip-spectre-key
-  steps:
-  - checkout: self
-  - template: install-terraform.yml
+    - bash: |
+        terraform init -input=false
+      displayName: 'Terraform Init'
+      workingDirectory: "$(PROJECT_ROOT)/terraform/infra"
+      env:
+        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
 
-  # - bash: |
-  #     echo "Installing Terraform..."
-  #     curl -fsSL https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip -o terraform.zip
-  #     unzip -q terraform.zip
-  #     sudo mv terraform /usr/local/bin/
-  #     rm terraform.zip
-  #     terraform version
-  #   displayName: Install Terraform CLI
+    - bash: |
+        unset TF_CLI_ARGS
+        unset TF_CLI_ARGS_validate
+        terraform validate
+      displayName: 'Terraform Validate'
+      workingDirectory: "$(PROJECT_ROOT)/terraform/infra"
 
-  - bash: |
-      terraform init -input=false
-    displayName: Terraform Init
-    workingDirectory: "$(PROJECT_ROOT)/terraform/infra"
-    env:
-      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+    - bash: |
+        terraform apply -auto-approve \
+          -var="aws_account_id=$(AWS_ACCOUNT_ID)" \
+          -var="aws_region=$(AWS_REGION)" \
+          -var="key_name=ip-spectre-key"
+      displayName: 'Terraform Apply'
+      workingDirectory: "$(PROJECT_ROOT)/terraform/infra"
+      env:
+        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
 
-  - bash: |
-      unset TF_CLI_ARGS
-      unset TF_CLI_ARGS_validate
-      terraform validate
-    displayName: Terraform Validate
-    workingDirectory: "$(PROJECT_ROOT)/terraform/infra"
+  # ========== STAGE 5: DESTROY (OPTIONAL) ==========
+- stage: Destroy
+  displayName: 'Destroy Infrastructure'
+  condition: eq('${{ parameters.terraformDestroy }}', true)
+  jobs:
+  - job: TerraformDestroy
+    displayName: 'Destroy Everything'
+    variables:
+      TF_VAR_aws_account_id: $(AWS_ACCOUNT_ID)
+      TF_VAR_aws_region: $(AWS_REGION)
+      TF_VAR_key_name: ip-spectre-key
+    steps:
+    - checkout: self
+    - template: install-terraform.yml
 
-  - bash: |
-      terraform apply -auto-approve \
-        -var="aws_account_id=$(AWS_ACCOUNT_ID)" \
-        -var="aws_region=$(AWS_REGION)" \
-        -var="key_name=ip-spectre-key"
-    displayName: Terraform Apply
-    workingDirectory: "$(PROJECT_ROOT)/terraform/infra"
-    condition: eq('${{ parameters.terraformApply }}', true)
-    env:
-      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+    # Destroy Infra
+    - bash: |
+        terraform init -input=false
+        terraform destroy -auto-approve \
+          -var="aws_account_id=$(AWS_ACCOUNT_ID)" \
+          -var="aws_region=$(AWS_REGION)" \
+          -var="key_name=ip-spectre-key"
+      displayName: 'Terraform Destroy Infra'
+      workingDirectory: "$(PROJECT_ROOT)/terraform/infra"
+      env:
+        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
 
-  - bash: |
-      terraform destroy -auto-approve \
-        -var="aws_account_id=$(AWS_ACCOUNT_ID)" \
-        -var="aws_region=$(AWS_REGION)" \
-        -var="key_name=ip-spectre-key"
-    displayName: Terraform Destroy
-    workingDirectory: "$(PROJECT_ROOT)/terraform/infra"
-    condition: eq('${{ parameters.terraformDestroy }}', true)
-    env:
-      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+    # Clean ECR images then destroy
+    - bash: |
+        echo "Cleaning ECR repositories..."
+        for repo in ip-spectre-backend ip-spectre-frontend; do
+          aws ecr batch-delete-image \
+            --repository-name "$repo" \
+            --region $(AWS_REGION) \
+            --image-ids "$(aws ecr list-images --repository-name $repo --region $(AWS_REGION) --query 'imageIds[*]' --output json)" 2>/dev/null || true
+        done
+        
+        terraform init -input=false
+        terraform destroy -auto-approve
+      displayName: 'Terraform Destroy ECR'
+      workingDirectory: "$(PROJECT_ROOT)/terraform/ecr"
+      env:
+        AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+        AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+# trigger:
+# - none
 
-  - bash: |
-      terraform init -input=false
-      terraform destroy -auto-approve
-    displayName: Terraform Destroy ECR
-    workingDirectory: "$(PROJECT_ROOT)/terraform/ecr"
-    condition: eq('${{ parameters.terraformDestroy }}', true)
-    env:
-      AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
-      AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+# variables:
+# - group: aws-cred-mihaela
+# - name: PROJECT_ROOT
+#   value: "Assignment 8 - FINAL BOSS"
+
+# parameters:
+# - name: terraformApply
+#   displayName: "Run Terraform Apply (create infrastructure)"
+#   type: boolean
+#   default: false
+
+# - name: terraformDestroy
+#   displayName: "Run Terraform Destroy (delete infrastructure)"
+#   type: boolean
+#   default: false
+
+# pool:
+#   vmImage: ubuntu-latest
+
+# jobs:
+
+# - job: TerraformECR
+#   displayName: Terraform - Create ECR Repositories
+#   condition: eq('${{ parameters.terraformApply }}', true)
+#   variables:
+#     TF_VAR_aws_account_id: $(AWS_ACCOUNT_ID)
+#     TF_VAR_aws_region: $(AWS_REGION)
+#   steps:
+#   - checkout: self
+#   - template: install-terraform.yml
+#   - bash: |
+#       terraform init -input=false
+#       terraform apply -auto-approve
+#     displayName: Terraform Apply ECR
+#     workingDirectory: "$(PROJECT_ROOT)/terraform/ecr"
+#     env:
+#       AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+#       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+
+# stages:
+#   # ========== STAGE 1: CODE QUALITY ==========
+#   - stage: CodeQuality
+#     displayName: 'Code Quality & Tests'
+#     condition: eq('${{ parameters.terraformApply }}', true)
+#     jobs:
+#       - job: LintAndTest
+#         displayName: 'Lint & Unit Tests'
+#         steps:
+#           - checkout: self
+
+#           - task: UsePythonVersion@0
+#             inputs:
+#               versionSpec: '3.11'
+#             displayName: 'Set up Python 3.11'
+
+#           # Linting
+#           - bash: |
+#               cd backend
+#               python -m venv venv
+#               source venv/bin/activate
+#               pip install --upgrade pip
+#               pip install flake8 black pylint
+              
+#               echo "Running Black formatter check..."
+#               black --check app/ || true
+              
+#               echo "Running Flake8..."
+#               flake8 app/ --max-line-length=120 --exclude=venv || true
+              
+#               echo "Running Pylint..."
+#               pylint app/ --disable=C0111,C0103 || true
+#             displayName: 'Code Linting'
+#             workingDirectory: "$(PROJECT_ROOT)"
+#             continueOnError: true
+
+#           # Unit Tests
+#           - bash: |
+#               cd backend
+#               source venv/bin/activate
+#               pip install -r requirements.txt
+#               python -m pytest -v --junitxml=test-results.xml --cov=app --cov-report=xml --cov-report=html
+#             displayName: 'Run Unit Tests'
+#             workingDirectory: "$(PROJECT_ROOT)"
+
+#           - task: PublishTestResults@2
+#             condition: succeededOrFailed()
+#             inputs:
+#               testResultsFormat: 'JUnit'
+#               testResultsFiles: '**/test-results.xml'
+#               testRunTitle: 'Backend Unit Tests'
+#               failTaskOnFailedTests: true
+#             displayName: 'Publish Test Results'
+
+#           - task: PublishCodeCoverageResults@1
+#             condition: succeededOrFailed()
+#             inputs:
+#               codeCoverageTool: 'Cobertura'
+#               summaryFileLocation: '$(PROJECT_ROOT)/backend/coverage.xml'
+#               reportDirectory: '$(PROJECT_ROOT)/backend/htmlcov'
+#             displayName: 'Publish Code Coverage'
+
+
+# - job: Docker
+#   displayName: Build & Push Docker Image
+#   dependsOn: TerraformECR
+#   condition: and(succeeded(), eq('${{ parameters.terraformApply }}', true))
+#   steps:
+#   - checkout: self
+
+#   - task: UsePythonVersion@0
+#     inputs:
+#       versionSpec: '3.11'
+#     displayName: Set up Python 3.11
+
+#   - bash: |
+#       aws ecr get-login-password --region $(AWS_REGION) \
+#         | docker login \
+#           --username AWS \
+#           --password-stdin $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
+#     displayName: Login to Amazon ECR
+#     env:
+#       AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+#       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+
+#   - bash: |
+#       SHORT_SHA=$(echo $(Build.SourceVersion) | cut -c1-7)
+#       docker build -t ip-spectre-backend:$SHORT_SHA -t ip-spectre-backend:$SHORT_SHA backend/
+#       docker tag ip-spectre-backend:$SHORT_SHA \
+#         $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-backend:$SHORT_SHA
+#       docker push \
+#         $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-backend:$SHORT_SHA
+#     displayName: Build & Push Backend Docker Image to ECR
+#     workingDirectory: "$(PROJECT_ROOT)"
+#     env:
+#       AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+#       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+
+#   - bash: |
+#       SHORT_SHA=$(echo $(Build.SourceVersion) | cut -c1-7)
+#       docker build -t ip-spectre-frontend:$SHORT_SHA -t ip-spectre-frontend:$SHORT_SHA frontend/
+#       docker tag ip-spectre-frontend:$SHORT_SHA \
+#         $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-frontend:$SHORT_SHA
+#       docker push \
+#         $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com/ip-spectre-frontend:$SHORT_SHA
+#     displayName: Build & Push Frontend Docker Image to ECR
+#     workingDirectory: "$(PROJECT_ROOT)"
+#     env:
+#       AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+#       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+
+# - job: Infrastructure
+#   displayName: Infrastructure Management
+#   dependsOn:
+#     - Docker
+#     - TerraformECR
+#   condition: or(
+#     eq('${{ parameters.terraformApply }}', true),
+#     eq('${{ parameters.terraformDestroy }}', true)
+#     )
+#   variables:
+#     TF_VAR_aws_account_id: $(AWS_ACCOUNT_ID)
+#     TF_VAR_aws_region: $(AWS_REGION)
+#     TF_VAR_key_name: ip-spectre-key
+#   steps:
+#   - checkout: self
+#   - template: install-terraform.yml
+
+#   # - bash: |
+#   #     echo "Installing Terraform..."
+#   #     curl -fsSL https://releases.hashicorp.com/terraform/1.6.6/terraform_1.6.6_linux_amd64.zip -o terraform.zip
+#   #     unzip -q terraform.zip
+#   #     sudo mv terraform /usr/local/bin/
+#   #     rm terraform.zip
+#   #     terraform version
+#   #   displayName: Install Terraform CLI
+
+#   - bash: |
+#       terraform init -input=false
+#     displayName: Terraform Init
+#     workingDirectory: "$(PROJECT_ROOT)/terraform/infra"
+#     env:
+#       AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+#       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+
+#   - bash: |
+#       unset TF_CLI_ARGS
+#       unset TF_CLI_ARGS_validate
+#       terraform validate
+#     displayName: Terraform Validate
+#     workingDirectory: "$(PROJECT_ROOT)/terraform/infra"
+
+#   - bash: |
+#       terraform apply -auto-approve \
+#         -var="aws_account_id=$(AWS_ACCOUNT_ID)" \
+#         -var="aws_region=$(AWS_REGION)" \
+#         -var="key_name=ip-spectre-key"
+#     displayName: Terraform Apply
+#     workingDirectory: "$(PROJECT_ROOT)/terraform/infra"
+#     condition: eq('${{ parameters.terraformApply }}', true)
+#     env:
+#       AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+#       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+
+#   - bash: |
+#       terraform destroy -auto-approve \
+#         -var="aws_account_id=$(AWS_ACCOUNT_ID)" \
+#         -var="aws_region=$(AWS_REGION)" \
+#         -var="key_name=ip-spectre-key"
+#     displayName: Terraform Destroy
+#     workingDirectory: "$(PROJECT_ROOT)/terraform/infra"
+#     condition: eq('${{ parameters.terraformDestroy }}', true)
+#     env:
+#       AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+#       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+
+#   - bash: |
+#       terraform init -input=false
+#       terraform destroy -auto-approve
+#     displayName: Terraform Destroy ECR
+#     workingDirectory: "$(PROJECT_ROOT)/terraform/ecr"
+#     condition: eq('${{ parameters.terraformDestroy }}', true)
+#     env:
+#       AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
+#       AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)

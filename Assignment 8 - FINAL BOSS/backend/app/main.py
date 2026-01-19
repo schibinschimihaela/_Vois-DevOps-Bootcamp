@@ -14,6 +14,7 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
+
 @app.get("/scan")
 def scan(ip: str | None = Query(default=None)):
     return scan_ip(ip)

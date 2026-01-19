@@ -3,3 +3,7 @@ uvicorn[standard]
 boto3
 requests
 python-dotenv
+pytest
+httpx
+pytest-mock
+pytest-cov
