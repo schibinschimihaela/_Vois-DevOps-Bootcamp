@@ -3,23 +3,29 @@
 # =========================
 
 APP_NAME=ip-spectre
-AWS_REGION=eu-west-1
+AWS_REGION?=eu-west-1
+BACKEND_DIR=backend
+FRONTEND_DIR=frontend
 TERRAFORM_DIR=terraform
-DOCKERFILE=docker/Dockerfile
+BACKEND_IMAGE=$(APP_NAME)-backend
+FRONTEND_IMAGE=$(APP_NAME)-frontend
+PYTHON?=python
 
-.PHONY: help install run scan docker-build docker-run tf-init tf-apply tf-destroy clean
+.PHONY: help install run-backend test docker-build-backend docker-run-backend docker-build-frontend docker-run-frontend tf-init tf-apply tf-destroy clean
 
 help:
 	@echo "IP SPECTRE - Available commands:"
 	@echo ""
-	@echo "Local:"
-	@echo "  make install        Install Python dependencies"
-	@echo "  make run            Run CLI locally"
-	@echo "  make scan           Scan IP locally (--scan)"
+	@echo "Local backend:"
+	@echo "  make install             Install backend Python dependencies"
+	@echo "  make run-backend         Run backend API locally (uvicorn)"
+	@echo "  make test                Run backend tests"
 	@echo ""
 	@echo "Docker:"
-	@echo "  make docker-build   Build Docker image"
-	@echo "  make docker-run     Run CLI in Docker with AWS access"
+	@echo "  make docker-build-backend   Build backend Docker image"
+	@echo "  make docker-run-backend     Run backend Docker image (port 8080)"
+	@echo "  make docker-build-frontend  Build frontend Docker image"
+	@echo "  make docker-run-frontend    Run frontend Docker image (port 3000->80)"
 	@echo ""
 	@echo "Terraform:"
 	@echo "  make tf-init        Terraform init"
@@ -32,24 +38,27 @@ help:
 # -------- Local --------
 
 install:
-	pip install -r cli/requirements.txt
+	$(PYTHON) -m pip install -r $(BACKEND_DIR)/requirements.txt
 
-run:
-	python cli/cli.py
+run-backend:
+	$(PYTHON) -m uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8080
 
-scan:
-	python cli/cli.py --scan
+test:
+	pytest $(BACKEND_DIR)/tests
 
 # -------- Docker --------
 
-docker-build:
-	docker build -t $(APP_NAME) -f $(DOCKERFILE) .
+docker-build-backend:
+	docker build -t $(BACKEND_IMAGE) -f $(BACKEND_DIR)/Dockerfile $(BACKEND_DIR)
 
-docker-run:
-	docker run -it \
-		-e AWS_REGION=$(AWS_REGION) \
-		-v ~/.aws:/home/appuser/.aws:ro \
-		$(APP_NAME)
+docker-run-backend:
+	docker run -it --rm -p 8080:8080 --env-file .env $(BACKEND_IMAGE)
+
+docker-build-frontend:
+	docker build -t $(FRONTEND_IMAGE) -f $(FRONTEND_DIR)/Dockerfile $(FRONTEND_DIR)
+
+docker-run-frontend:
+	docker run -it --rm -p 3000:80 $(FRONTEND_IMAGE)
 
 # -------- Terraform --------
 
@@ -65,4 +74,5 @@ tf-destroy:
 # -------- Cleanup --------
 
 clean:
-	rm -rf cli/__pycache__ cli/*.log
+	-rm -rf **/__pycache__
+	-rm -rf $(BACKEND_DIR)/*.log $(BACKEND_DIR)/.pytest_cache
