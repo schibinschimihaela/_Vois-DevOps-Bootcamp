@@ -1,5 +1,4 @@
 def test_logs(client, mocker):
-    # Mock DynamoDB table.scan
     mock_table = mocker.MagicMock()
     mock_table.scan.return_value = {
         "Items": [
@@ -23,7 +22,6 @@ def test_logs(client, mocker):
     assert data[0]["country"] == "US"
 
 def test_purge_logs(client, mocker):
-    # Mock DynamoDB operations
     mock_table = mocker.MagicMock()
     mock_table.scan.return_value = {
         "Items": [
