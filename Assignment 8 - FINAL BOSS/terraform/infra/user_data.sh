@@ -51,7 +51,6 @@ services:
       options:
         awslogs-group: "/ip-spectre/backend"
         awslogs-region: "${AWS_REGION}"
-        awslogs-stream-prefix: backend
     restart: unless-stopped
 
   frontend:
@@ -70,7 +69,6 @@ services:
       options:
         awslogs-group: "/ip-spectre/frontend"
         awslogs-region: "${AWS_REGION}"
-        awslogs-stream-prefix: frontend
     restart: unless-stopped
 
 networks:

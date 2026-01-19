@@ -11,7 +11,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 
 
@@ -19,13 +19,16 @@ app.add_middleware(
 def scan(ip: str | None = Query(default=None)):
     return scan_ip(ip)
 
+
 @app.get("/logs")
 def logs():
     return view_logs()
 
+
 @app.delete("/logs")
 def delete_logs():
     return {"deleted": purge_logs()}
+
 
 @app.get("/aws/status")
 def status():
